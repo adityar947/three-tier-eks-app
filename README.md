@@ -173,7 +173,55 @@ kubectl apply -f ingress.yaml
 
 ### 🔄 Part 6: GitHub Actions CI/CD
 
-Add this to `.github/workflows/deploy.yml` (see full Medium guide for code).
+Add this to `.github/workflows/deploy.yml`
+```
+name: CI/CD Pipeline for Three-Tier App
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      ECR_REGISTRY: <ACCOUNT_ID>.dkr.ecr.us-west-2.amazonaws.com
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-west-2
+
+    - name: Login to Amazon ECR
+      run: |
+        aws ecr get-login-password --region us-west-2 \
+        | docker login --username AWS --password-stdin $ECR_REGISTRY
+
+    - name: Build and Push Frontend Image
+      run: |
+        docker build -t three-tier-frontend ./Application-Code/frontend
+        docker tag three-tier-frontend:latest $ECR_REGISTRY/three-tier-frontend:latest
+        docker push $ECR_REGISTRY/three-tier-frontend:latest
+
+    - name: Build and Push Backend Image
+      run: |
+        docker build -t three-tier-backend ./Application-Code/backend
+        docker tag three-tier-backend:latest $ECR_REGISTRY/three-tier-backend:latest
+        docker push $ECR_REGISTRY/three-tier-backend:latest
+
+    - name: Deploy to EKS
+      run: |
+        aws eks update-kubeconfig --region us-west-2 --name three-tier-cluster
+        kubectl apply -f Kubernetes-Manifests-file/
+```
+[Amazon EKS Deployment: Three-Tier Architecture Guide](https://medium.com/aws-in-plain-english/amazon-eks-deployment-three-tier-architecture-guide-5351003602f3) (Checkout full Medium guide for code).
 
 ---
 
